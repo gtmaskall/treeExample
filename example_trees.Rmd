@@ -1,0 +1,82 @@
+---
+title: A short example using trees
+author: Guy Maskall
+date: '`r format(Sys.time(), "%d %B, %Y")`'
+output:
+    html_document:
+        fig_width: 12
+        fig_height: 8
+---
+
+# Introduction
+
+We will illustrate using tree and rpart for classification.
+
+# tree
+
+We'll build a tree on some data, calculate performance on test data, then 
+prune the tree and recalculate its performance on the test data.
+
+```{r, tree}
+library(tree)
+library(rpart)
+
+data(stagec)
+stagec$pgstat <- factor(stagec$pgstat, levels = c(0, 1), labels = c("No", "Progressed"))
+summary(stagec)
+
+set.seed(2001)
+n_samp <- nrow(stagec)
+n_train <- round(.6 * n_samp)
+train <- sample(n_samp, n_train)
+pgstat_test <- stagec$pgstat[-train]
+
+tree.stagec <- tree(pgstat ~ .-pgstat, stagec, subset = train)
+print(tree.stagec)
+summary(tree.stagec)
+
+tree.stagec.pred <- predict(tree.stagec, newdata = stagec[-train, ], type = "class")
+plot(tree.stagec)
+text(tree.stagec)
+
+class.table <- table(tree.stagec.pred, pgstat_test)
+print(class.table)
+```
+
+So we obtain `r round(100 * sum(diag(class.table)) / sum(class.table))`% correct classification.
+
+## Improving the tree using cross-validation
+
+Now to see if we can improve the tree using cross-validation.
+
+```{r, treecv}
+cv.tree.stagec <- cv.tree(tree.stagec, FUN = prune.misclass)
+
+# these are the named variables we get out:
+names(cv.tree.stagec)
+# $dev is actually the CV error rate here
+plot(cv.tree.stagec$size, cv.tree.stagec$dev, type = "b", 
+        main = "CV error rate with tree size", xlab = "Tree size", ylab = "CV error rate")
+plot(cv.tree.stagec$k, cv.tree.stagec$dev, type = "b", 
+        main = "CV error rate with cost complexity", xlab = "Cost-complexity parameter", 
+        ylab = "CV error rate")
+```
+
+Now we can prune the tree to the optimum size (2) and recalculate how well it does on the
+test data.
+
+```{r, treecvpred}
+tree.stagec.pruned <- prune.misclass(tree.stagec, best = 2)
+tree.stagec.pruned.pred <- predict(tree.stagec.pruned, newdata = stagec[-train, ], type = "class")
+plot(tree.stagec.pruned)
+text(tree.stagec.pruned)
+summary(tree.stagec.pruned)
+
+class.table.pruned <- table(tree.stagec.pruned.pred, pgstat_test)
+print(class.table.pruned)
+```
+
+So on the pruned tree, we now get 
+`r round(100 * sum(diag(class.table.pruned)) / sum(class.table.pruned))`% correct classification.
+Pruning gave us a tree that performed better on the test set. The original tree looked very
+"tree like" but didn't fare as well on new data.
