@@ -20,6 +20,7 @@ prune the tree and recalculate its performance on the test data.
 ```{r, tree}
 library(tree)
 library(rpart)
+library(rattle)
 
 data(stagec)
 stagec$pgstat <- factor(stagec$pgstat, levels = c(0, 1), labels = c("No", "Progressed"))
@@ -80,3 +81,20 @@ So on the pruned tree, we now get
 `r round(100 * sum(diag(class.table.pruned)) / sum(class.table.pruned))`% correct classification.
 Pruning gave us a tree that performed better on the test set. The original tree looked very
 "tree like" but didn't fare as well on new data.
+
+## rpart
+
+So how about comparing with rpart?
+
+```{r, rpart}
+stagec_rpart1 <- rpart(pgstat ~ .-pgstat, stagec, method = "class", subset = train)
+fancyRpartPlot(stagec_rpart1)
+# summarise what information is in the plot
+# labels, text, colour coding etc.
+print(stagec_rpart1)
+summary(stagec_rpart1)
+plot(stagec_rpart1)
+plotcp(stagec_rpart1)
+printcp(stagec_rpart1)
+
+```
